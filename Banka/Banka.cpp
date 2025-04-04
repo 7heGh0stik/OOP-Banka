@@ -1,7 +1,5 @@
 #include <iostream>
 #include <vector>
-#include <string>
-
 using namespace std;
 
 class Client {
@@ -10,8 +8,8 @@ private:
     string name;
 public:
     Client(int c, string n) : code(c), name(n) {}
-    int getCode() { return code; }
-    string getName() { return name; }
+    int GetCode() { return code; }
+    string GetName() { return name; }
 };
 
 class Account {
@@ -22,82 +20,126 @@ private:
     Client* owner;
     Client* partner;
 public:
-    Account(int n, Client* c) : number(n), balance(0), interestRate(0), owner(c), partner(nullptr) {}
-    Account(int n, Client* c, double ir) : number(n), balance(0), interestRate(ir), owner(c), partner(nullptr) {}
-    Account(int n, Client* c, Client* p) : number(n), balance(0), interestRate(0), owner(c), partner(p) {}
-    Account(int n, Client* c, Client* p, double ir) : number(n), balance(0), interestRate(ir), owner(c), partner(p) {}
-    
-    int getNumber() { return number; }
-    double getBalance() { return balance; }
-    double getInterestRate() { return interestRate; }
-    Client* getOwner() { return owner; }
-    Client* getPartner() { return partner; }
-    
-    bool canWithdraw(double a) { return balance >= a; }
-    void deposit(double a) { balance += a; }
-    bool withdraw(double a) {
-        if (canWithdraw(a)) {
+    Account(int n, Client* o, double ir)
+        : number(n), balance(0), interestRate(ir), owner(o), partner(nullptr) {}
+
+    Account(int n, Client* o, Client* p, double ir)
+        : number(n), balance(0), interestRate(ir), owner(o), partner(p) {}
+
+    int GetNumber() { return number; }
+    double GetBalance() { return balance; }
+    double GetInterestRate() { return interestRate; }
+    Client* GetOwner() { return owner; }
+    Client* GetPartner() { return partner; }
+
+    bool CanWithdraw(double a) {
+        return a <= balance;
+    }
+
+    bool Withdraw(double a) {
+        if (CanWithdraw(a)) {
             balance -= a;
             return true;
         }
         return false;
     }
-    void addInterest() { balance += balance * interestRate; }
+
+    void Deposit(double a) {
+        balance += a;
+    }
+
+    void AddInterest() {
+        balance += balance * interestRate;
+    }
+
+    void SetInterest(double ir) {
+        interestRate = ir;
+    }
 };
 
 class Bank {
 private:
     vector<Client*> clients;
     vector<Account*> accounts;
+    double defaultInterest;
 public:
-    void addClient(int c, string n) { clients.push_back(new Client(c, n)); }
-    void addAccount(int n, Client* c, double ir = 0) { accounts.push_back(new Account(n, c, ir)); }
-    
-    Client* getClient(int c) {
-        for (auto client : clients)
-            if (client->getCode() == c) return client;
-        return nullptr;
+    Bank(double defaultInt) : defaultInterest(defaultInt) {}
+
+    ~Bank() {
+        for (auto c : clients) delete c;
+        for (auto a : accounts) delete a;
     }
-    Account* getAccount(int n) {
-        for (auto account : accounts)
-            if (account->getNumber() == n) return account;
-        return nullptr;
+
+    Client* CreateClient(int c, string n) {
+        Client* client = new Client(c, n);
+        clients.push_back(client);
+        return client;
     }
-    
-    void addInterestToAll() {
-        for (auto account : accounts)
-            account->addInterest();
+
+    Account* CreateAccount(int n, Client* o, double ir = -1) {
+        double usedInterest = (ir < 0) ? defaultInterest : ir;
+        Account* acc = new Account(n, o, usedInterest);
+        accounts.push_back(acc);
+        return acc;
+    }
+
+    Account* CreateAccount(int n, Client* o, Client* p, double ir = -1) {
+        double usedInterest = (ir < 0) ? defaultInterest : ir;
+        Account* acc = new Account(n, o, p, usedInterest);
+        accounts.push_back(acc);
+        return acc;
+    }
+
+    void AddInterest() {
+        for (auto acc : accounts) {
+            acc->AddInterest();
+        }
+    }
+
+    void ModifyDefaultInterest(double newInterest) {
+        for (auto acc : accounts) {
+            if (acc->GetInterestRate() == defaultInterest) {
+                acc->SetInterest(newInterest);
+            }
+        }
+        defaultInterest = newInterest;
+    }
+
+    void PrintAccounts() {
+        for (auto acc : accounts) {
+            cout << "Účet #" << acc->GetNumber()
+                 << ", stav: " << acc->GetBalance()
+                 << ", úrok: " << acc->GetInterestRate() << endl;
+        }
     }
 };
 
 int main() {
-    Bank bank;
-    bank.addClient(1, "Alice");
-    bank.addClient(2, "Bob");
-    
-    Client* alice = bank.getClient(1);
-    Client* bob = bank.getClient(2);
-    
-    bank.addAccount(101, alice, 0.02);
-    bank.addAccount(102, bob, 0.03);
-    
-    Account* acc1 = bank.getAccount(101);
-    Account* acc2 = bank.getAccount(102);
-    
-    acc1->deposit(1000);
-    acc2->deposit(2000);
-    
-    cout << "Alice balance: " << acc1->getBalance() << endl;
-    cout << "Bob balance: " << acc2->getBalance() << endl;
-    
-    acc1->addInterest();
-    acc2->addInterest();
-    
-    cout << "Alice balance after interest: " << acc1->getBalance() << endl;
-    cout << "Bob balance after interest: " << acc2->getBalance() << endl;
-    
-    cout << "Press ENTER to exit...";
+    Bank banka(0.01); //úrok 1 %
+
+    Client* c1 = banka.CreateClient(1, "Novák");
+    Client* c2 = banka.CreateClient(2, "Svoboda");
+
+    Account* a1 = banka.CreateAccount(100, c1);
+    Account* a2 = banka.CreateAccount(101, c2, 0.03);
+
+    a1->Deposit(1000);
+    a2->Deposit(2000);
+
+    cout << "Před úrokem:\n";
+    banka.PrintAccounts();
+
+    banka.AddInterest();
+
+    cout << "\nPo připsání úroku:\n";
+    banka.PrintAccounts();
+
+    banka.ModifyDefaultInterest(0.05);
+
+    cout << "\nPo změně výchozího úroku a aktualizaci účtů:\n";
+    banka.PrintAccounts();
+
+    cout << "ENTER to exit...";
     cin.get();
-    
     return 0;
 }
